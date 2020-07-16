@@ -2,9 +2,17 @@
 
 A simple provider hitting this API: https://developers.google.com/site-verification
 
+## How to install it?
+
+Quick answer, if you are in an amd64 Linux: download the binary from https://github.com/hectorj/terraform-provider-googlesiteverification/releases and `mv` it to `~/.terraform.d/plugins/terraform-provider-googlesiteverification`.
+
+Long answer: See https://www.terraform.io/docs/extend/how-terraform-works.html#discovery
+
 ## Usage
 
-```hcl-terraform
+It requires Google credentials to be provided the same way as described as in this document: https://www.terraform.io/docs/providers/google/guides/provider_reference.html#credentials-1
+
+```hcl
 # We get the verification token from Google
 data "googlesiteverification_dns_token" "example" {
   domain = "yourdomain.example.com"
