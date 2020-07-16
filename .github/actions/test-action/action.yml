@@ -1,0 +1,9 @@
+name: test
+description: run tests
+runs:
+  using: 'docker'
+  image: 'docker://golang:1.14'
+  env:
+    TF_ACC: "true"
+    GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+  args: ['go', 'test', '-v', '.']
