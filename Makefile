@@ -1,8 +1,10 @@
 vendor: go.mod go.sum
 	go mod vendor
 
+.PHONY: build
+build: terraform-provider-googlesiteverification
 terraform-provider-googlesiteverification: vendor $(wildcard *.go)
-	go build .
+	CGO_ENABLED=0 go build -o terraform-provider-googlesiteverification .
 
 .PHONY: test
 test: vendor $(wildcard *.go)

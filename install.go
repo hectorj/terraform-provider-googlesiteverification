@@ -28,7 +28,7 @@ func install() {
 			destinationBaseDir = filepath.Join(homeDir, ".terraform.d")
 		}
 	}
-	destinationPath := filepath.Join(destinationBaseDir, "plugins", runtime.GOOS+"_"+runtime.GOARCH, filepath.Base(os.Args[0]))
+	destinationPath := filepath.Join(destinationBaseDir, "plugins", runtime.GOOS+"_"+runtime.GOARCH, "terraform-provider-googlesiteverification")
 
 	pluginSrc, openErr := os.Open(os.Args[0])
 	if openErr != nil {
