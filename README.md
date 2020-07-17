@@ -4,9 +4,12 @@ A simple provider hitting this API: https://developers.google.com/site-verificat
 
 ## How to install it?
 
-Quick answer, if you are using an amd64 Linux: download the binary from https://github.com/hectorj/terraform-provider-googlesiteverification/releases and `mv` it to `~/.terraform.d/plugins/terraform-provider-googlesiteverification`.
+Download a binary from https://github.com/hectorj/terraform-provider-googlesiteverification/releases, then either:
 
-Long answer: See https://www.terraform.io/docs/extend/how-terraform-works.html#discovery
+- from anywhere, run `./terraform-provider-googlesiteverification install home`
+- from your project's terraform dir, run `./terraform-provider-googlesiteverification install`
+
+If you prefer doing it manually, see https://www.terraform.io/docs/extend/how-terraform-works.html#discovery
 
 ## Usage
 
