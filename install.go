@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -29,6 +30,7 @@ func install() {
 		}
 	}
 	destinationPath := filepath.Join(destinationBaseDir, "plugins", runtime.GOOS+"_"+runtime.GOARCH, "terraform-provider-googlesiteverification")
+	_, _ = fmt.Fprintf(os.Stderr, "Installing provider in %q\n", destinationPath)
 
 	pluginSrc, openErr := os.Open(os.Args[0])
 	if openErr != nil {
@@ -39,7 +41,7 @@ func install() {
 		panic(mkdirErr)
 	}
 
-	pluginDest, createErr := os.Create(destinationPath)
+	pluginDest, createErr := os.OpenFile(destinationPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if createErr != nil {
 		panic(createErr)
 	}
