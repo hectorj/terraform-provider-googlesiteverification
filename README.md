@@ -37,3 +37,9 @@ resource "googlesiteverification_dns" "example" {
   depends_on = [cloudflare_record.verification] 
 }
 ```
+
+To import the resource:
+
+```bash
+terraform import "googlesiteverification_dns.example" "yourdomain.example.com"
+```

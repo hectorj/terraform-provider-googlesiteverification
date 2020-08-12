@@ -82,9 +82,28 @@ func Provider() terraform.ResourceProvider {
 				Timeouts: &schema.ResourceTimeout{
 					Create: schema.DefaultTimeout(60 * time.Minute),
 				},
+				Importer: &schema.ResourceImporter{
+					State: importSiteVerification,
+				},
 			},
 		},
 	}
+}
+
+func importSiteVerification(resourceData *schema.ResourceData, provider interface{}) ([]*schema.ResourceData, error) {
+	service := provider.(configuredProvider).service
+	domain := resourceData.Id()
+
+	if setErr := resourceData.Set(domainKey, domain); setErr != nil {
+		return nil, setErr
+	}
+
+	_, getErr := service.WebResource.Get(resourceData.Id()).Do()
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	return []*schema.ResourceData{resourceData}, nil
 }
 
 type configuredProvider struct {
