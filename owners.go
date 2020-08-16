@@ -46,12 +46,7 @@ func readSiteOwners(resourceData *schema.ResourceData, provider interface{}) err
 		return getErr
 	}
 
-	ownersSet := schema.NewSet(schema.HashString, nil)
-	for _, owner := range siteResource.Owners {
-		ownersSet.Add(owner)
-	}
-	setOwnersErr := resourceData.Set(ownersKey, ownersSet)
-
+	setOwnersErr := setOwners(resourceData, siteResource.Owners)
 	return setOwnersErr
 }
 
@@ -64,8 +59,6 @@ func createSiteOwners(resourceData *schema.ResourceData, provider interface{}) e
 
 func updateSiteOwners(resourceData *schema.ResourceData, provider interface{}) error {
 	service := provider.(configuredProvider).service
-	domain := resourceData.Get(domainKey).(string)
-
 	owners := resourceData.Get(ownersKey).(*schema.Set)
 	ownersList := make([]string, 0, owners.Len())
 	for _, owner := range owners.List() {
@@ -84,9 +77,19 @@ func updateSiteOwners(resourceData *schema.ResourceData, provider interface{}) e
 			return resource.RetryableError(updateErr)
 		}
 
-		resourceData.SetId(domain)
-		_ = resourceData.Set(ownersKey, updatedSiteResource.Owners)
+		setOwnersErr := setOwners(resourceData, updatedSiteResource.Owners)
+		if setOwnersErr != nil {
+			resource.NonRetryableError(setOwnersErr)
+		}
 
 		return resource.NonRetryableError(readDnsSiteVerification(resourceData, provider))
 	})
+}
+
+func setOwners(resourceData *schema.ResourceData, owners []string) error {
+	ownersSet := schema.NewSet(schema.HashString, nil)
+	for _, owner := range owners {
+		ownersSet.Add(owner)
+	}
+	return resourceData.Set(ownersKey, ownersSet)
 }

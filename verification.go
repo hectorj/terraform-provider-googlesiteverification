@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/url"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -15,29 +14,6 @@ const recordNameKey = "record_name"
 const recordValueKey = "record_value"
 const credentialsKey = "credentials"
 const siteType = "INET_DOMAIN"
-
-func importSiteVerification(resourceData *schema.ResourceData, provider interface{}) ([]*schema.ResourceData, error) {
-	service := provider.(configuredProvider).service
-	domain := resourceData.Id()
-	resourceId := resourceData.Id()
-	if !strings.Contains(domain, "://") {
-		resourceId = resourceIdFromDomain(resourceId)
-	} else {
-		domain = strings.SplitN(resourceId, "://", 2)[1]
-	}
-
-	resourceData.SetId(resourceId)
-	if setErr := resourceData.Set(domainKey, domain); setErr != nil {
-		return nil, setErr
-	}
-
-	_, getErr := service.WebResource.Get(resourceData.Id()).Do()
-	if getErr != nil {
-		return nil, getErr
-	}
-
-	return []*schema.ResourceData{resourceData}, nil
-}
 
 func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider interface{}) error {
 	service := provider.(configuredProvider).service
@@ -54,6 +30,7 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 		return getTokenErr
 	}
 
+	resourceData.SetId(domainKey + "_token")
 	if setErr := resourceData.Set(domainKey, domain); setErr != nil {
 		return setErr
 	}
@@ -71,10 +48,7 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 }
 
 func deleteDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
-	service := provider.(configuredProvider).service
-
-	deleteErr := service.WebResource.Delete(resourceData.Id()).Do()
-	return deleteErr
+	return nil // no-op, user should remove the DNS token
 }
 
 func readDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {

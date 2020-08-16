@@ -75,9 +75,6 @@ func Provider() terraform.ResourceProvider {
 				Timeouts: &schema.ResourceTimeout{
 					Create: schema.DefaultTimeout(60 * time.Minute),
 				},
-				Importer: &schema.ResourceImporter{
-					State: importSiteVerification,
-				},
 			},
 			"googlesiteverification_owners": {
 				Schema: map[string]*schema.Schema{
