@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/plugin"
 	"github.com/hashicorp/terraform-plugin-sdk/terraform"
@@ -26,12 +25,6 @@ func main() {
 }
 
 const domainKey = "domain"
-const recordTypeKey = "record_type"
-const recordNameKey = "record_name"
-const recordValueKey = "record_value"
-const credentialsKey = "credentials"
-const siteType = "INET_DOMAIN"
-const verificationMethod = "DNS_TXT"
 
 func Provider() terraform.ResourceProvider {
 	return &schema.Provider{
@@ -78,7 +71,7 @@ func Provider() terraform.ResourceProvider {
 				Create:      createDnsSiteVerification,
 				Read:        readDnsSiteVerification,
 				Delete:      deleteDnsSiteVerification,
-				Description: "https://developers.google.com/site-verification",
+				Description: "https://developers.google.com/site-verification/v1/webResource/insert",
 				Timeouts: &schema.ResourceTimeout{
 					Create: schema.DefaultTimeout(60 * time.Minute),
 				},
@@ -86,24 +79,35 @@ func Provider() terraform.ResourceProvider {
 					State: importSiteVerification,
 				},
 			},
+			"googlesiteverification_owners": {
+				Schema: map[string]*schema.Schema{
+					domainKey: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+					},
+					ownersKey: {
+						Type: schema.TypeSet,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+						Required: true,
+					},
+				},
+				Create:      createSiteOwners,
+				Update:      updateSiteOwners,
+				Read:        readSiteOwners,
+				Delete:      deleteSiteOwners,
+				Description: "https://developers.google.com/site-verification/v1/webResource/update",
+				Timeouts: &schema.ResourceTimeout{
+					Create: schema.DefaultTimeout(1 * time.Minute),
+				},
+				Importer: &schema.ResourceImporter{
+					State: importSiteOwners,
+				},
+			},
 		},
 	}
-}
-
-func importSiteVerification(resourceData *schema.ResourceData, provider interface{}) ([]*schema.ResourceData, error) {
-	service := provider.(configuredProvider).service
-	domain := resourceData.Id()
-
-	if setErr := resourceData.Set(domainKey, domain); setErr != nil {
-		return nil, setErr
-	}
-
-	_, getErr := service.WebResource.Get(resourceData.Id()).Do()
-	if getErr != nil {
-		return nil, getErr
-	}
-
-	return []*schema.ResourceData{resourceData}, nil
 }
 
 type configuredProvider struct {
@@ -162,63 +166,6 @@ func findCredentials(resourceData *schema.ResourceData, ctx context.Context) (op
 	return credentialsClientOption, nil
 }
 
-func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider interface{}) error {
-	service := provider.(configuredProvider).service
-	domain := resourceData.Get(domainKey).(string)
-
-	tokenResource, getTokenErr := service.WebResource.GetToken(&siteverification.SiteVerificationWebResourceGettokenRequest{
-		Site: &siteverification.SiteVerificationWebResourceGettokenRequestSite{
-			Identifier: domain,
-			Type:       siteType,
-		},
-		VerificationMethod: verificationMethod,
-	}).Do()
-	if getTokenErr != nil {
-		return getTokenErr
-	}
-
-	if setErr := resourceData.Set(recordTypeKey, "TXT"); setErr != nil {
-		return setErr
-	}
-	if setErr := resourceData.Set(recordNameKey, domain); setErr != nil {
-		return setErr
-	}
-	if setErr := resourceData.Set(recordValueKey, tokenResource.Token); setErr != nil {
-		return setErr
-	}
-	resourceData.SetId(domain)
-
-	return nil
-}
-
-func deleteDnsSiteVerification(_ *schema.ResourceData, _ interface{}) error {
-	return nil // no-op, user should just remove the DNS record
-}
-
-func readDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
-	service := provider.(configuredProvider).service
-
-	_, getErr := service.WebResource.Get(resourceData.Id()).Do()
-	return getErr
-}
-
-func createDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
-	service := provider.(configuredProvider).service
-	domain := resourceData.Get(domainKey).(string)
-
-	return resource.Retry(resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
-		_, insertErr := service.WebResource.Insert(verificationMethod, &siteverification.SiteVerificationWebResourceResource{
-			Site: &siteverification.SiteVerificationWebResourceResourceSite{
-				Identifier: domain,
-				Type:       siteType,
-			},
-		}).Do()
-		if insertErr != nil {
-			return resource.RetryableError(insertErr)
-		}
-
-		resourceData.SetId(domain)
-
-		return resource.NonRetryableError(readDnsSiteVerification(resourceData, provider))
-	})
+func resourceIdFromDomain(domain string) string {
+	return "dns://" + domain
 }
