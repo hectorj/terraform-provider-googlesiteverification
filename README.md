@@ -33,7 +33,8 @@ resource "cloudflare_record" "verification" {
 # *After* that, we submit our verification request to Google.
 # Might take some time, depending on Google's DNS caching.
 resource "googlesiteverification_dns" "example" {
-  domain = "yourdomain.example.com"
+  domain     = "yourdomain.example.com"
+  token      = data.googlesiteverification_dns_token.example.record_value
   depends_on = [cloudflare_record.verification] 
 }
 ```

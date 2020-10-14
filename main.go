@@ -1,10 +1,14 @@
 package main
 
 import (
+	"log"
 	"context"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
+	"fmt"
+	"net/url"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -25,6 +29,7 @@ func main() {
 	})
 }
 
+const tokenKey = "token"
 const domainKey = "domain"
 const recordTypeKey = "record_type"
 const recordNameKey = "record_name"
@@ -32,6 +37,7 @@ const recordValueKey = "record_value"
 const credentialsKey = "credentials"
 const siteType = "INET_DOMAIN"
 const verificationMethod = "DNS_TXT"
+const tokenStillExists = "You cannot unverify your ownership of this site until your verification token (meta tag, HTML file, Google Analytics tracking code, Google Tag Manager container code, or DNS record) has been removed."
 
 func Provider() terraform.ResourceProvider {
 	return &schema.Provider{
@@ -70,6 +76,11 @@ func Provider() terraform.ResourceProvider {
 			"googlesiteverification_dns": {
 				Schema: map[string]*schema.Schema{
 					domainKey: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+					},
+					tokenKey: {
 						Type:     schema.TypeString,
 						Required: true,
 						ForceNew: true,
@@ -191,8 +202,29 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 	return nil
 }
 
-func deleteDnsSiteVerification(_ *schema.ResourceData, _ interface{}) error {
-	return nil // no-op, user should just remove the DNS record
+
+func deleteDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
+	service := provider.(configuredProvider).service
+
+	id := resourceData.Id()
+	if ! strings.HasPrefix(resourceData.Id(), "dns://") {
+		// the provider 0.3.1 and earlier stored the domain as
+		// the id, which is incorrect.
+		id = fmt.Sprintf("dns://%s", id)
+	}
+
+	return resource.Retry(resourceData.Timeout(schema.TimeoutDelete), func() *resource.RetryError {
+		err := service.WebResource.Delete(id).Do()
+		if err != nil {
+			if strings.Contains(err.Error(), tokenStillExists) {
+				log.Printf("retry: %s", err)
+				return resource.RetryableError(err)
+			} else {
+				return resource.NonRetryableError(err)
+			}
+		}
+		return nil
+	})
 }
 
 func readDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
@@ -207,17 +239,25 @@ func createDnsSiteVerification(resourceData *schema.ResourceData, provider inter
 	domain := resourceData.Get(domainKey).(string)
 
 	return resource.Retry(resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
-		_, insertErr := service.WebResource.Insert(verificationMethod, &siteverification.SiteVerificationWebResourceResource{
+		r, insertErr := service.WebResource.Insert(verificationMethod, &siteverification.SiteVerificationWebResourceResource{
 			Site: &siteverification.SiteVerificationWebResourceResourceSite{
 				Identifier: domain,
 				Type:       siteType,
 			},
 		}).Do()
 		if insertErr != nil {
+			log.Printf("retrying failed site verification request, %s", insertErr)
 			return resource.RetryableError(insertErr)
 		}
 
-		resourceData.SetId(domain)
+		id, err := url.QueryUnescape(r.Id)
+		if err != nil {
+			return resource.NonRetryableError(
+				fmt.Errorf(
+					"failed to urldecode id %s, %s", r.Id, err))
+		}
+
+		resourceData.SetId(id)
 
 		return resource.NonRetryableError(readDnsSiteVerification(resourceData, provider))
 	})
