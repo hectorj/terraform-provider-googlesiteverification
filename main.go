@@ -82,7 +82,7 @@ func Provider() terraform.ResourceProvider {
 					},
 					tokenKey: {
 						Type:     schema.TypeString,
-						Required: true,
+						Required: false,
 						ForceNew: true,
 					},
 				},
