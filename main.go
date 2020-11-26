@@ -1,14 +1,14 @@
 package main
 
 import (
-	"log"
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
-	"fmt"
-	"net/url"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -82,7 +82,7 @@ func Provider() terraform.ResourceProvider {
 					},
 					tokenKey: {
 						Type:     schema.TypeString,
-						Required: false,
+						Required: true,
 						ForceNew: true,
 					},
 				},
@@ -103,7 +103,7 @@ func Provider() terraform.ResourceProvider {
 
 func importSiteVerification(resourceData *schema.ResourceData, provider interface{}) ([]*schema.ResourceData, error) {
 	service := provider.(configuredProvider).service
-	domain := resourceData.Id()
+	domain := strings.TrimPrefix(resourceData.Id(), "dns://")
 
 	if setErr := resourceData.Set(domainKey, domain); setErr != nil {
 		return nil, setErr
@@ -112,6 +112,21 @@ func importSiteVerification(resourceData *schema.ResourceData, provider interfac
 	_, getErr := service.WebResource.Get(resourceData.Id()).Do()
 	if getErr != nil {
 		return nil, getErr
+	}
+
+	// fetch and set the token's value
+	tokenResource, getTokenErr := service.WebResource.GetToken(&siteverification.SiteVerificationWebResourceGettokenRequest{
+		Site: &siteverification.SiteVerificationWebResourceGettokenRequestSite{
+			Identifier: domain,
+			Type:       siteType,
+		},
+		VerificationMethod: verificationMethod,
+	}).Do()
+	if getTokenErr != nil {
+		return nil, getTokenErr
+	}
+	if setErr := resourceData.Set(tokenKey, tokenResource.Token); setErr != nil {
+		return nil, setErr
 	}
 
 	return []*schema.ResourceData{resourceData}, nil
@@ -202,12 +217,11 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 	return nil
 }
 
-
 func deleteDnsSiteVerification(resourceData *schema.ResourceData, provider interface{}) error {
 	service := provider.(configuredProvider).service
 
 	id := resourceData.Id()
-	if ! strings.HasPrefix(resourceData.Id(), "dns://") {
+	if !strings.HasPrefix(resourceData.Id(), "dns://") {
 		// the provider 0.3.1 and earlier stored the domain as
 		// the id, which is incorrect.
 		id = fmt.Sprintf("dns://%s", id)

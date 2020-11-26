@@ -30,25 +30,25 @@ data "googlesiteverification_dns_token" "example" {
 				Config: `
 resource "googlesiteverification_dns" "example" {
 	domain = "test-terraform-provider.hectorj.net"
-        token  = "google-site-verification=deadbeef"
+	token  = "google-site-verification=8UwI0BG4aaCZxPXXD8J_hvya4LfJLpzS8JjfylQjFtU"
 }`,
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "domain", "test-terraform-provider.hectorj.net"),
-					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "token", "google-site-verification=deadbeef"),
+					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "token", "google-site-verification=8UwI0BG4aaCZxPXXD8J_hvya4LfJLpzS8JjfylQjFtU"),
 				),
 			},
 			{
 				Config: `
 resource "googlesiteverification_dns" "example" {
 	domain = "test-terraform-provider.hectorj.net"
-        token  = "google-site-verification=deadbeef"
+	token  = "google-site-verification=8UwI0BG4aaCZxPXXD8J_hvya4LfJLpzS8JjfylQjFtU"
 }`,
 				ResourceName:      "googlesiteverification_dns.example",
 				ImportState:       true,
 				ImportStateVerify: true,
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "domain", "test-terraform-provider.hectorj.net"),
-					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "token", "google-site-verification=deadbeef"),
+					resource.TestCheckResourceAttr("googlesiteverification_dns.example", "token", "google-site-verification=8UwI0BG4aaCZxPXXD8J_hvya4LfJLpzS8JjfylQjFtU"),
 				),
 			},
 		},
