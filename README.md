@@ -35,7 +35,6 @@ resource "cloudflare_record" "verification" {
 resource "googlesiteverification_dns" "example" {
   domain     = "yourdomain.example.com"
   token      = data.googlesiteverification_dns_token.example.record_value
-  depends_on = [cloudflare_record.verification] 
 }
 ```
 
