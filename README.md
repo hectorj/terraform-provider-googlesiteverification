@@ -2,7 +2,15 @@
 
 A simple provider hitting this API: https://developers.google.com/site-verification
 
+https://registry.terraform.io/providers/hectorj/googlesiteverification
+
 ## How to install it?
+
+### Terraform v0.13+
+
+See https://registry.terraform.io/providers/hectorj/googlesiteverification -> "Use provider"
+
+## Older terraform
 
 Download a binary from https://github.com/hectorj/terraform-provider-googlesiteverification/releases, then either:
 
