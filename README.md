@@ -13,7 +13,7 @@ If you prefer doing it manually, see https://www.terraform.io/docs/extend/how-te
 
 ## Usage
 
-It requires Google credentials to be provided the same way as described as in this document: https://www.terraform.io/docs/providers/google/guides/provider_reference.html#credentials-1
+It requires Google credentials to be provided the same way as described as in this document: https://registry.terraform.io/providers/hashicorp/google/latest/docs/guides/provider_reference#authentication
 
 ```hcl
 # We get the verification token from Google.
