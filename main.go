@@ -19,6 +19,8 @@ import (
 	"google.golang.org/api/siteverification/v1"
 )
 
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "install" {
 		install()
@@ -45,6 +47,12 @@ func Provider() terraform.ResourceProvider {
 			credentialsKey: {
 				Type:     schema.TypeString,
 				Optional: true,
+				DefaultFunc: schema.MultiEnvDefaultFunc([]string{
+					"GOOGLE_CREDENTIALS",
+					"GOOGLE_CLOUD_KEYFILE_JSON",
+					"GCLOUD_KEYFILE_JSON",
+				}, ""),
+				Description: "Either the path to or the contents of a [service account key file](https://cloud.google.com/iam/docs/creating-managing-service-account-keys) in JSON format. If not provided, the [application default credentials](https://cloud.google.com/sdk/gcloud/reference/auth/application-default) will be used.",
 			},
 		},
 		ConfigureFunc: configureProvider,
@@ -52,20 +60,24 @@ func Provider() terraform.ResourceProvider {
 			"googlesiteverification_dns_token": {
 				Schema: map[string]*schema.Schema{
 					domainKey: {
-						Type:     schema.TypeString,
-						Required: true,
+						Type:        schema.TypeString,
+						Required:    true,
+						Description: "The domain you want to verify.",
 					},
 					recordTypeKey: {
-						Type:     schema.TypeString,
-						Computed: true,
+						Type:        schema.TypeString,
+						Computed:    true,
+						Description: "The type of DNS record you should create.",
 					},
 					recordNameKey: {
-						Type:     schema.TypeString,
-						Computed: true,
+						Type:        schema.TypeString,
+						Computed:    true,
+						Description: "The name of the record you should create.",
 					},
 					recordValueKey: {
-						Type:     schema.TypeString,
-						Computed: true,
+						Type:        schema.TypeString,
+						Computed:    true,
+						Description: "The value of the record you should create.",
 					},
 				},
 				Description: "https://developers.google.com/site-verification/v1/webResource/getToken",
@@ -76,14 +88,16 @@ func Provider() terraform.ResourceProvider {
 			"googlesiteverification_dns": {
 				Schema: map[string]*schema.Schema{
 					domainKey: {
-						Type:     schema.TypeString,
-						Required: true,
-						ForceNew: true,
+						Type:        schema.TypeString,
+						Required:    true,
+						ForceNew:    true,
+						Description: "The domain you want to verify.",
 					},
 					tokenKey: {
-						Type:     schema.TypeString,
-						Required: true,
-						ForceNew: true,
+						Type:        schema.TypeString,
+						Required:    true,
+						ForceNew:    true,
+						Description: "The token you got from data.googlesiteverification_dns_token. This forces a new verification in case the token changes.",
 					},
 				},
 				Create:      createDnsSiteVerification,
@@ -159,12 +173,6 @@ func findCredentials(resourceData *schema.ResourceData, ctx context.Context) (op
 	var credentialsLiteral string
 	if credentialsFromConfig, ok := resourceData.GetOk(credentialsKey); ok {
 		credentialsLiteral = credentialsFromConfig.(string)
-	} else if credentialsFromEnv, ok := os.LookupEnv("GOOGLE_CREDENTIALS"); ok {
-		credentialsLiteral = credentialsFromEnv
-	} else if credentialsFromEnv, ok := os.LookupEnv("GOOGLE_CLOUD_KEYFILE_JSON"); ok {
-		credentialsLiteral = credentialsFromEnv
-	} else if credentialsFromEnv, ok := os.LookupEnv("GCLOUD_KEYFILE_JSON"); ok {
-		credentialsLiteral = credentialsFromEnv
 	}
 
 	var credentialsClientOption option.ClientOption
