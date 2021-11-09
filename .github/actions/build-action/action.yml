@@ -2,5 +2,5 @@ name: build
 description: build binary
 runs:
   using: 'docker'
-  image: 'docker://golang:1.14'
+  image: 'docker://golang:1.17'
   args: ['make', 'build']

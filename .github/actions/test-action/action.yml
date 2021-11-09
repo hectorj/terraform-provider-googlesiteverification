@@ -2,7 +2,7 @@ name: test
 description: run tests
 runs:
   using: 'docker'
-  image: 'docker://golang:1.14'
+  image: 'docker://golang:1.17'
   env:
     TF_ACC: "true"
   args: ['go', 'test', '-v', '.']
