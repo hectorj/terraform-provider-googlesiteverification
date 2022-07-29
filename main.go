@@ -187,7 +187,10 @@ func findCredentials(resourceData *schema.ResourceData, ctx context.Context) (op
 			credentialsClientOption = option.WithCredentialsFile(credentialsLiteral)
 		}
 	} else {
-		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx)
+		scopes := []string{
+			"https://www.googleapis.com/auth/siteverification",
+		}
+		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx, scopes...)		
 		if defaultCredentialsErr != nil {
 			return nil, defaultCredentialsErr
 		}
