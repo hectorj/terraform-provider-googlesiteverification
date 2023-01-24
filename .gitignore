@@ -2,3 +2,4 @@ vendor/
 /terraform-provider-googlesiteverification
 .idea/
 .terraform/
+.terraform.lock.hcl
