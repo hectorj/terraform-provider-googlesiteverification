@@ -37,6 +37,10 @@ const recordTypeKey = "record_type"
 const recordNameKey = "record_name"
 const recordValueKey = "record_value"
 const credentialsKey = "credentials"
+const resourceId = "resource_id"
+const webResource_site_type = "site_details_type"
+const webResource_site_identifier = "site_details_identifier"
+const webResource_owner = "owner_details"
 const siteType = "INET_DOMAIN"
 const verificationMethod = "DNS_TXT"
 const tokenStillExists = "You cannot unverify your ownership of this site until your verification token (meta tag, HTML file, Google Analytics tracking code, Google Tag Manager container code, or DNS record) has been removed."
@@ -82,6 +86,35 @@ func Provider() terraform.ResourceProvider {
 				},
 				Description: "https://developers.google.com/site-verification/v1/webResource/getToken",
 				Read:        readDnsSiteVerificationToken,
+			},
+			"googlesiteverification_site_details": {
+				Schema: map[string]*schema.Schema{
+					resourceId: {
+						Type:     schema.TypeString,
+						Required: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_owner: {
+						Type: schema.TypeList,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_identifier: {
+						Type:     schema.TypeString,
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_type: {
+						Type:     schema.TypeString,
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+				},
+				Description: "https://developers.google.com/site-verification/v1/webResource/get",
+				Read:        readDnsSiteInformation,
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
@@ -190,7 +223,7 @@ func findCredentials(resourceData *schema.ResourceData, ctx context.Context) (op
 		scopes := []string{
 			"https://www.googleapis.com/auth/siteverification",
 		}
-		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx, scopes...)		
+		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx, scopes...)
 		if defaultCredentialsErr != nil {
 			return nil, defaultCredentialsErr
 		}
@@ -224,6 +257,30 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 		return setErr
 	}
 	resourceData.SetId(domain)
+
+	return nil
+}
+
+func readDnsSiteInformation(resourceData *schema.ResourceData, provider interface{}) error {
+	service := provider.(configuredProvider).service
+	id := resourceData.Get(resourceId).(string)
+
+	siteData, getErr := service.WebResource.Get(id).Do()
+	if getErr != nil {
+		return getErr
+	}
+
+	if setErr := resourceData.Set(webResource_site_identifier, siteData.Site.Identifier); setErr != nil {
+		return setErr
+	}
+	if setErr := resourceData.Set(webResource_site_type, siteData.Site.Type); setErr != nil {
+		return setErr
+	}
+
+	if setErr := resourceData.Set(webResource_owner, siteData.Owners); setErr != nil {
+		return setErr
+	}
+	resourceData.SetId(siteData.Site.Type)
 
 	return nil
 }
