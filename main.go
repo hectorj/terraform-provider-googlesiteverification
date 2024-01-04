@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -37,6 +38,10 @@ const recordTypeKey = "record_type"
 const recordNameKey = "record_name"
 const recordValueKey = "record_value"
 const credentialsKey = "credentials"
+const resourceId = "resource_id"
+const webResource_site_type = "site_details_type"
+const webResource_site_identifier = "site_details_identifier"
+const webResource_owner = "owner_details"
 const siteType = "INET_DOMAIN"
 const verificationMethod = "DNS_TXT"
 const tokenStillExists = "You cannot unverify your ownership of this site until your verification token (meta tag, HTML file, Google Analytics tracking code, Google Tag Manager container code, or DNS record) has been removed."
@@ -83,6 +88,35 @@ func Provider() terraform.ResourceProvider {
 				Description: "https://developers.google.com/site-verification/v1/webResource/getToken",
 				Read:        readDnsSiteVerificationToken,
 			},
+			"googlesiteverification_site_details": {
+				Schema: map[string]*schema.Schema{
+					resourceId: {
+						Type:     schema.TypeString,
+						Required: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_owner: {
+						Type: schema.TypeList,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_identifier: {
+						Type:     schema.TypeString,
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_type: {
+						Type:     schema.TypeString,
+						Computed: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+				},
+				Description: "https://developers.google.com/site-verification/v1/webResource/get",
+				Read:        readDnsSiteInformation,
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"googlesiteverification_dns": {
@@ -110,6 +144,47 @@ func Provider() terraform.ResourceProvider {
 				Importer: &schema.ResourceImporter{
 					State: importSiteVerification,
 				},
+			},
+			"googlesiteverification_add_owner": {
+				Schema: map[string]*schema.Schema{
+					resourceId: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_owner: {
+						Type: schema.TypeList,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_identifier: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_type: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+				},
+				Create:      createDnsSiteInformation,
+				Read:        readDnsSiteInformation,
+				Delete:      deleteDnsSiteVerification,
+				Description: "https://developers.google.com/site-verification",
+				Timeouts: &schema.ResourceTimeout{
+					Create: schema.DefaultTimeout(60 * time.Minute),
+				},
+				// Importer: &schema.ResourceImporter{
+				// 	State: importSiteVerification,
+				// },
 			},
 		},
 	}
@@ -190,7 +265,7 @@ func findCredentials(resourceData *schema.ResourceData, ctx context.Context) (op
 		scopes := []string{
 			"https://www.googleapis.com/auth/siteverification",
 		}
-		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx, scopes...)		
+		credentials, defaultCredentialsErr := google.FindDefaultCredentials(ctx, scopes...)
 		if defaultCredentialsErr != nil {
 			return nil, defaultCredentialsErr
 		}
@@ -224,6 +299,50 @@ func readDnsSiteVerificationToken(resourceData *schema.ResourceData, provider in
 		return setErr
 	}
 	resourceData.SetId(domain)
+
+	return nil
+}
+
+func readDnsSiteInformation(resourceData *schema.ResourceData, provider interface{}) error {
+	service := provider.(configuredProvider).service
+	id := resourceData.Get(resourceId).(string)
+
+	slog.Info("raw ID: ", "id", id)
+	decodedInputId, err := url.QueryUnescape(id)
+	if err != nil {
+		errString := fmt.Errorf(
+			"failed to urldecode id %s, %s", id, err)
+		log.Fatalln(errString)
+		return errString
+	}
+	slog.Info("decoded ID: ", "id", decodedInputId)
+
+	siteData, getErr := service.WebResource.Get(decodedInputId).Do()
+	if getErr != nil {
+		return getErr
+	}
+
+	if setErr := resourceData.Set(webResource_site_identifier, siteData.Site.Identifier); setErr != nil {
+		return setErr
+	}
+	if setErr := resourceData.Set(webResource_site_type, siteData.Site.Type); setErr != nil {
+		return setErr
+	}
+
+	if setErr := resourceData.Set(webResource_owner, siteData.Owners); setErr != nil {
+		return setErr
+	}
+
+	decodedOutputId, err := url.QueryUnescape(siteData.Id)
+	if err != nil {
+		errString := fmt.Errorf(
+			"failed to urldecode id %s, %s", siteData.Id, err)
+		log.Fatalln(errString)
+		return errString
+	}
+	slog.Info("decoded ID: ", "id", decodedOutputId)
+
+	resourceData.SetId(decodedOutputId)
 
 	return nil
 }
@@ -285,5 +404,52 @@ func createDnsSiteVerification(resourceData *schema.ResourceData, provider inter
 		resourceData.SetId(id)
 
 		return resource.NonRetryableError(readDnsSiteVerification(resourceData, provider))
+	})
+}
+
+func typeof(v interface{}) string {
+	return fmt.Sprintf("%T", v)
+}
+
+func createDnsSiteInformation(resourceData *schema.ResourceData, provider interface{}) error {
+	service := provider.(configuredProvider).service
+	id := resourceData.Get(resourceId).(string)
+	domain := resourceData.Get(webResource_site_identifier).(string)
+	site_type := resourceData.Get(webResource_site_type).(string)
+
+	ownerInferfaceArray := resourceData.Get(webResource_owner).([]interface{})
+
+	var owners []string
+
+	for _, v := range ownerInferfaceArray {
+		owner := v.(string)
+		log.Println(owner)
+		owners = append(owners, owner)
+	}
+
+	return resource.Retry(resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		r, insertErr := service.WebResource.Update(
+			id, &siteverification.SiteVerificationWebResourceResource{
+				Site: &siteverification.SiteVerificationWebResourceResourceSite{
+					Identifier: domain,
+					Type:       site_type,
+				},
+				Owners: owners,
+			}).Do()
+		if insertErr != nil {
+			log.Printf("retrying failed site verification request, %s", insertErr)
+			return resource.RetryableError(insertErr)
+		}
+
+		id, err := url.QueryUnescape(r.Id)
+		if err != nil {
+			return resource.NonRetryableError(
+				fmt.Errorf(
+					"failed to urldecode id %s, %s", r.Id, err))
+		}
+
+		resourceData.SetId(id)
+
+		return resource.NonRetryableError(readDnsSiteInformation(resourceData, provider))
 	})
 }
