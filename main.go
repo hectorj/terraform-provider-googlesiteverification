@@ -144,6 +144,47 @@ func Provider() terraform.ResourceProvider {
 					State: importSiteVerification,
 				},
 			},
+			"googlesiteverification_add_owner": {
+				Schema: map[string]*schema.Schema{
+					resourceId: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_owner: {
+						Type: schema.TypeList,
+						Elem: &schema.Schema{
+							Type: schema.TypeString,
+						},
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_identifier: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+					webResource_site_type: {
+						Type:     schema.TypeString,
+						Required: true,
+						ForceNew: true,
+						// Description: "The id of the resource you want to get details for.",
+					},
+				},
+				Create:      createDnsSiteInformation,
+				Read:        readDnsSiteInformation,
+				Delete:      deleteDnsSiteVerification,
+				Description: "https://developers.google.com/site-verification",
+				Timeouts: &schema.ResourceTimeout{
+					Create: schema.DefaultTimeout(60 * time.Minute),
+				},
+				// Importer: &schema.ResourceImporter{
+				// 	State: importSiteVerification,
+				// },
+			},
 		},
 	}
 }
@@ -342,5 +383,53 @@ func createDnsSiteVerification(resourceData *schema.ResourceData, provider inter
 		resourceData.SetId(id)
 
 		return resource.NonRetryableError(readDnsSiteVerification(resourceData, provider))
+	})
+}
+
+func typeof(v interface{}) string {
+	return fmt.Sprintf("%T", v)
+}
+
+func createDnsSiteInformation(resourceData *schema.ResourceData, provider interface{}) error {
+	service := provider.(configuredProvider).service
+	id := resourceData.Get(resourceId).(string)
+	domain := resourceData.Get(webResource_site_identifier).(string)
+
+	x := resourceData.Get(webResource_owner).([]interface{})
+	y := typeof(x)
+
+	log.Println(y)
+	log.Println(x)
+
+	var owners []string
+
+	for _, v := range x {
+		owners = append(owners, v.(string))
+	}
+
+	return resource.Retry(resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		r, insertErr := service.WebResource.Update(
+			id, &siteverification.SiteVerificationWebResourceResource{
+				Site: &siteverification.SiteVerificationWebResourceResourceSite{
+					Identifier: domain,
+					Type:       siteType,
+				},
+				Owners: owners,
+			}).Do()
+		if insertErr != nil {
+			log.Printf("retrying failed site verification request, %s", insertErr)
+			return resource.RetryableError(insertErr)
+		}
+
+		id, err := url.QueryUnescape(r.Id)
+		if err != nil {
+			return resource.NonRetryableError(
+				fmt.Errorf(
+					"failed to urldecode id %s, %s", r.Id, err))
+		}
+
+		resourceData.SetId(id)
+
+		return resource.NonRetryableError(readDnsSiteInformation(resourceData, provider))
 	})
 }
