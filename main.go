@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"strings"
@@ -306,7 +307,17 @@ func readDnsSiteInformation(resourceData *schema.ResourceData, provider interfac
 	service := provider.(configuredProvider).service
 	id := resourceData.Get(resourceId).(string)
 
-	siteData, getErr := service.WebResource.Get(id).Do()
+	slog.Info("raw ID: ", "id", id)
+	decodedInputId, err := url.QueryUnescape(id)
+	if err != nil {
+		errString := fmt.Errorf(
+			"failed to urldecode id %s, %s", id, err)
+		log.Fatalln(errString)
+		return errString
+	}
+	slog.Info("decoded ID: ", "id", decodedInputId)
+
+	siteData, getErr := service.WebResource.Get(decodedInputId).Do()
 	if getErr != nil {
 		return getErr
 	}
@@ -321,7 +332,17 @@ func readDnsSiteInformation(resourceData *schema.ResourceData, provider interfac
 	if setErr := resourceData.Set(webResource_owner, siteData.Owners); setErr != nil {
 		return setErr
 	}
-	resourceData.SetId(siteData.Site.Type)
+
+	decodedOutputId, err := url.QueryUnescape(siteData.Id)
+	if err != nil {
+		errString := fmt.Errorf(
+			"failed to urldecode id %s, %s", siteData.Id, err)
+		log.Fatalln(errString)
+		return errString
+	}
+	slog.Info("decoded ID: ", "id", decodedOutputId)
+
+	resourceData.SetId(decodedOutputId)
 
 	return nil
 }
@@ -394,17 +415,16 @@ func createDnsSiteInformation(resourceData *schema.ResourceData, provider interf
 	service := provider.(configuredProvider).service
 	id := resourceData.Get(resourceId).(string)
 	domain := resourceData.Get(webResource_site_identifier).(string)
+	site_type := resourceData.Get(webResource_site_type).(string)
 
-	x := resourceData.Get(webResource_owner).([]interface{})
-	y := typeof(x)
-
-	log.Println(y)
-	log.Println(x)
+	ownerInferfaceArray := resourceData.Get(webResource_owner).([]interface{})
 
 	var owners []string
 
-	for _, v := range x {
-		owners = append(owners, v.(string))
+	for _, v := range ownerInferfaceArray {
+		owner := v.(string)
+		log.Println(owner)
+		owners = append(owners, owner)
 	}
 
 	return resource.Retry(resourceData.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
@@ -412,7 +432,7 @@ func createDnsSiteInformation(resourceData *schema.ResourceData, provider interf
 			id, &siteverification.SiteVerificationWebResourceResource{
 				Site: &siteverification.SiteVerificationWebResourceResourceSite{
 					Identifier: domain,
-					Type:       siteType,
+					Type:       site_type,
 				},
 				Owners: owners,
 			}).Do()
